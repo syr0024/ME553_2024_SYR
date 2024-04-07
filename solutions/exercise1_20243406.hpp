@@ -13,9 +13,14 @@ public:
   ArticulatedSystem() {
     joint_pos_w_.setZero();
     joint_ori_w_.setIdentity();
-  };
+  }
   
-  Eigen::Matrix3d rpy2Rot(const Eigen::Vector3d& rpy) {
+  void reset () {
+    joint_pos_w_.setZero();
+    joint_ori_w_.setIdentity();
+  }
+  
+  Eigen::Matrix3d rpy2Rot (const Eigen::Vector3d& rpy) {
     Eigen::Matrix3d Rx, Ry, Rz;
     
     Rx << 1, 0, 0,
@@ -30,7 +35,7 @@ public:
     
     return Rx*Ry*Rz;
   }
-  Eigen::Matrix3d quat2Rot(const Eigen::Vector4d& q) {
+  Eigen::Matrix3d quat2Rot (const Eigen::Vector4d& q) {
     Eigen::Matrix3d rot;
     rot << 2*(q(0)*q(0) + q(1)*q(1)) - 1,
       2*(q(1)*q(2) - q(0)*q(3)),
@@ -43,7 +48,7 @@ public:
       2*(q(0)*q(0) + q(3)*q(3)) - 1;
     return rot;
   }
-  Eigen::Vector3d quat2Rpy(const Eigen::Vector4d& q) {
+  Eigen::Vector3d quat2Rpy (const Eigen::Vector4d& q) {
     double roll, pitch, yaw;
     double sinr_cosp = 2 * (q[0] * q[1] + q[2] * q[3]);
     double cosr_cosp = 1 - 2 * (q[1] * q[1] + q[2] * q[2]);
@@ -62,7 +67,7 @@ public:
     return Eigen::Vector3d(roll, pitch, yaw);
   }
   
-  Eigen::Vector3d forwardKinematics(const Eigen::Vector3d &parent_pos, const Eigen::Vector3d& parent_ori) {
+  Eigen::Vector3d forwardKinematics (const Eigen::Vector3d &parent_pos, const Eigen::Vector3d& parent_ori) {
     
     joint_pos_w_ = parent_pos + rpy2Rot(parent_ori)*joint_pos_w_;
     joint_ori_w_ = rpy2Rot(parent_ori) * joint_ori_w_;
@@ -70,7 +75,6 @@ public:
     return joint_pos_w_;
   }
   
-  Eigen::VectorXd gc_;
   Eigen::Vector3d joint_pos_w_;
   Eigen::Matrix3d joint_ori_w_;
   
@@ -80,9 +84,6 @@ public:
 inline Eigen::Vector3d getEndEffectorPosition (const Eigen::VectorXd& gc) {
   
   ArticulatedSystem articulatedSystem_;
-  
-  // initialized result
-  Eigen::Vector3d posWe; posWe.setZero();
   
   // number of joint
   int joint_num = 10;
