@@ -43,24 +43,6 @@ public:
       2*(q(0)*q(0) + q(3)*q(3)) - 1;
     return rot;
   }
-  Eigen::Vector3d quat2Rpy (const Eigen::Vector4d& q) {
-    double roll, pitch, yaw;
-    double sinr_cosp = 2 * (q[0] * q[1] + q[2] * q[3]);
-    double cosr_cosp = 1 - 2 * (q[1] * q[1] + q[2] * q[2]);
-    roll = std::atan2(sinr_cosp, cosr_cosp);
-    
-    double sinp = 2 * (q[0] * q[2] - q[3] * q[1]);
-    if (std::abs(sinp) >= 1)
-      pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-    else
-      pitch = std::asin(sinp);
-    
-    double siny_cosp = 2 * (q[0] * q[3] + q[1] * q[2]);
-    double cosy_cosp = 1 - 2 * (q[2] * q[2] + q[3] * q[3]);
-    yaw = std::atan2(siny_cosp, cosy_cosp);
-    
-    return Eigen::Vector3d(roll, pitch, yaw);
-  }
   
   Eigen::MatrixXd skewSymmetric (const Eigen::Vector3d& a) {
     Eigen::Matrix3d ax;
@@ -106,7 +88,6 @@ public:
     
     // add base pose and orientation
     origin_pos.head(3) = gc.head(3);
-    origin_ori.head(3) << articulatedSystem_.quat2Rpy(gc.block<4,1>(3, 0));
     
     // add revolute joint difference
     for(int i = 0; i < dynamic_joint_num; i++){
@@ -136,31 +117,37 @@ public:
       0, 0, -1.57079632679,
       0, 0, 0;
     
+    Eigen::Matrix3d ROB; ROB = articulatedSystem_.quat2Rot(gc.block<4,1>(3, 0));
+    
     articulatedSystem_.reset();
-    for (int i = 3*3; i > 0; i -= 3){
+    for (int i = 3*3; i > 3; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
+    articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
     r_W_LH_HAA = articulatedSystem_.joint_pos_w_;
-    p_W_LH_HAA = -articulatedSystem_.joint_ori_w_.block<3,1>(0,0);
+    p_W_LH_HAA = - (ROB * articulatedSystem_.joint_ori_w_).block<3,1>(0,0);
     
     articulatedSystem_.reset();
-    for (int i = 6*3; i > 0; i -= 3){
+    for (int i = 6*3; i > 3; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
+    articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
     r_W_LH_HFE = articulatedSystem_.joint_pos_w_;
-    p_W_LH_HFE = articulatedSystem_.joint_ori_w_.block<3,1>(0,0);
+    p_W_LH_HFE = (ROB * articulatedSystem_.joint_ori_w_).block<3,1>(0,0);
     
     articulatedSystem_.reset();
-    for (int i = 9*3; i > 0; i -= 3){
+    for (int i = 9*3; i > 3; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
+    articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
     r_W_LH_KFE = articulatedSystem_.joint_pos_w_;
-    p_W_LH_KFE = articulatedSystem_.joint_ori_w_.block<3,1>(0,0);
+    p_W_LH_KFE = (ROB * articulatedSystem_.joint_ori_w_).block<3,1>(0,0);
     
     articulatedSystem_.reset();
-    for (int i = joint_num*3 +3; i > 0; i -= 3){
+    for (int i = joint_num*3 +3; i > 3; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
+    articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
     r_W_e = articulatedSystem_.joint_pos_w_;
   }
   

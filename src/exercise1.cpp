@@ -24,19 +24,19 @@ int main(int argc, char* argv[]) {
 
   // anymal configuration
   Eigen::VectorXd jointNominalConfig(anymal->getGeneralizedCoordinateDim());
-  jointNominalConfig << 0, 0, 0.54, 1.0, 2.0, 3.0, 4.0, 0.03, 0.4, -0.8, -0.03, 0.4, -0.8, 2.3, -1.4, -1.8, -0.03, -0.4, 0.8;
+  jointNominalConfig << 0, 0, 0.54, 1.0, 0.0, 0.0, 0.0, 0.03, 0.4, -0.8, -0.03, 0.4, -0.8, 0.03, -0.4, 0.8, -0.03, -0.4, 0.8;
   anymal->setGeneralizedCoordinate(jointNominalConfig);
 
   anymal->updateKinematics();
 
   // debug sphere
   auto debugSphere = server.addVisualSphere("debug_sphere", 0.04);
-  debugSphere->setColor(1,0,0,0.7);
+  debugSphere->setColor(1,0,0,1);
   debugSphere->setPosition(getEndEffectorPosition(jointNominalConfig));
 
   // solution sphere
-  auto answerSphere = server.addVisualSphere("answer_sphere", 0.035);
-  answerSphere->setColor(0,1,0,0.5);
+  auto answerSphere = server.addVisualSphere("answer_sphere", 0.02);
+  answerSphere->setColor(0,1,0,1);
   raisim::Vec<3> pos;
   anymal->getFramePosition("LH_shank_fixed_LH_FOOT", pos);
   answerSphere->setPosition(pos.e());

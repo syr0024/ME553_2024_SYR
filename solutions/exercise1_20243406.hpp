@@ -48,24 +48,6 @@ public:
       2*(q(0)*q(0) + q(3)*q(3)) - 1;
     return rot;
   }
-  Eigen::Vector3d quat2Rpy (const Eigen::Vector4d& q) {
-    double roll, pitch, yaw;
-    double sinr_cosp = 2 * (q[0] * q[1] + q[2] * q[3]);
-    double cosr_cosp = 1 - 2 * (q[1] * q[1] + q[2] * q[2]);
-    roll = std::atan2(sinr_cosp, cosr_cosp);
-    
-    double sinp = 2 * (q[0] * q[2] - q[3] * q[1]);
-    if (std::abs(sinp) >= 1)
-      pitch = std::copysign(M_PI / 2, sinp); // use 90 degrees if out of range
-    else
-      pitch = std::asin(sinp);
-    
-    double siny_cosp = 2 * (q[0] * q[3] + q[1] * q[2]);
-    double cosy_cosp = 1 - 2 * (q[2] * q[2] + q[3] * q[3]);
-    yaw = std::atan2(siny_cosp, cosy_cosp);
-    
-    return Eigen::Vector3d(roll, pitch, yaw);
-  }
   
   Eigen::Vector3d forwardKinematics (const Eigen::Vector3d &parent_pos, const Eigen::Vector3d& parent_ori) {
     
@@ -96,7 +78,7 @@ inline Eigen::Vector3d getEndEffectorPosition (const Eigen::VectorXd& gc) {
   
   // add base pose and orientation
   origin_pos.head(3) = gc.head(3);
-  origin_ori.head(3) << articulatedSystem_.quat2Rpy(gc.block<4,1>(3, 0));
+//  origin_ori.head(3) << articulatedSystem_.quat2Rpy(gc.block<4,1>(3, 0));
   
   // add revolute joint difference
   for(int i = 0; i < dynamic_joint_num; i++){
@@ -127,11 +109,11 @@ inline Eigen::Vector3d getEndEffectorPosition (const Eigen::VectorXd& gc) {
                                     -0.08795, 0.01305, -0.33797;
   
   // calculate end effector position
-  for (int i = joint_num*3 +3; i > 0; i -= 3){
+  for (int i = joint_num*3 +3; i > 3; i -= 3){
     articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
   }
-  
-  return articulatedSystem_.joint_pos_w_; /// replace this
+
+  return gc.head(3) + articulatedSystem_.quat2Rot(gc.block<4,1>(3, 0))*articulatedSystem_.joint_pos_w_; /// replace this
 }
 
 #endif // ME553_2022_SOLUTIONS_EXERCISE1_STUDENTID_HPP_
