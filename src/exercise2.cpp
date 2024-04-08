@@ -38,16 +38,11 @@ int main(int argc, char* argv[]) {
   bool answerCorrect = true;
   raisim::USLEEP(10000000);
   
-  auto debugSphere = server.addVisualSphere("debug_sphere", 0.04);
-  
   for (int i=0; i<20000; i++) {
     RS_TIMED_LOOP(world.getTimeStep()*2e6);
 
     anymal->getFrameVelocity("LH_shank_fixed_LH_FOOT", footVel);
     anymal->getFrameAngularVelocity("LH_shank_fixed_LH_FOOT", footAngVel);
-    
-    debugSphere->setColor(1,0,0,1);
-    debugSphere->setPosition(getEndEffectorPosition(gc));
 
     if((footVel.e() - getFootLinearVelocity(gc, gv)).norm() < 1e-8) {
       std::cout<<"the linear velocity is correct "<<std::endl;

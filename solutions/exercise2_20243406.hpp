@@ -71,8 +71,8 @@ public:
   RobotParameters() {};
   
   void reset () {
-    origin_ori.setZero(joint_num*3 +3);
-    origin_pos.setZero(joint_num*3 +3);
+    origin_ori.setZero(joint_num*3);
+    origin_pos.setZero(joint_num*3);
     r_W_LH_HAA.setZero();
     p_W_LH_HAA.setZero();
     r_W_LH_HFE.setZero();
@@ -86,15 +86,12 @@ public:
     // number of dynamic joint
     Eigen::VectorXd theta; theta.setZero(dynamic_joint_num);
     
-    // add base pose and orientation
-    origin_pos.head(3) = gc.head(3);
-    
     // add revolute joint difference
     for(int i = 0; i < dynamic_joint_num; i++){
       theta[i] = gc(13+i);
     }
     
-    origin_pos.tail(joint_num*3) << -0.2999, 0.104, 0.0, // base_LH_HAA
+    origin_pos << -0.2999, 0.104, 0.0, // base_LH_HAA
       0,0,0, // LH_HAA (revolute)
       0,0,0, // LH_HIP_LH_hip_fixed
       -0.0599, 0.08381, 0.0, // LH_hip_fixed_LH_HFE
@@ -106,7 +103,7 @@ public:
       -0.08795, 0.01305, -0.33797; // LH_shank_fixed_LH_FOOT
     
     // Write down from the top joint origin
-    origin_ori.tail(joint_num*3) << -2.61799387799, 0, -3.14159265359,
+    origin_ori << -2.61799387799, 0, -3.14159265359,
       -theta[0], 0, 0,
       -2.61799387799,0,-3.14159265359,
       0, 0, 1.57079632679,
@@ -120,7 +117,7 @@ public:
     Eigen::Matrix3d ROB; ROB = articulatedSystem_.quat2Rot(gc.block<4,1>(3, 0));
     
     articulatedSystem_.reset();
-    for (int i = 3*3; i > 3; i -= 3){
+    for (int i = 2*3; i > 0; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
     articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
@@ -128,7 +125,7 @@ public:
     p_W_LH_HAA = - (ROB * articulatedSystem_.joint_ori_w_).block<3,1>(0,0);
     
     articulatedSystem_.reset();
-    for (int i = 6*3; i > 3; i -= 3){
+    for (int i = 5*3; i > 0; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
     articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
@@ -136,7 +133,7 @@ public:
     p_W_LH_HFE = (ROB * articulatedSystem_.joint_ori_w_).block<3,1>(0,0);
     
     articulatedSystem_.reset();
-    for (int i = 9*3; i > 3; i -= 3){
+    for (int i = 8*3; i > 0; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
     articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
@@ -144,7 +141,7 @@ public:
     p_W_LH_KFE = (ROB * articulatedSystem_.joint_ori_w_).block<3,1>(0,0);
     
     articulatedSystem_.reset();
-    for (int i = joint_num*3 +3; i > 3; i -= 3){
+    for (int i = joint_num*3; i > 0; i -= 3){
       articulatedSystem_.forwardKinematics(origin_pos.block<3,1>(i-3, 0), origin_ori.block<3,1>(i-3, 0));
     }
     articulatedSystem_.joint_pos_w_ = gc.head(3) + ROB*articulatedSystem_.joint_pos_w_;
@@ -207,13 +204,4 @@ inline Eigen::Vector3d getFootAngularVelocity (const Eigen::VectorXd& gc, const 
   joint_gv << gv.head(6), gv.block<3,1>(12,0);
   
   return velocity_jacobian*joint_gv;
-}
-
-inline Eigen::Vector3d getEndEffectorPosition (const Eigen::VectorXd& gc) {
-  ArticulatedSystem articulatedSystem_;
-  RobotParameters robotParameters_;
-  robotParameters_.reset();
-  robotParameters_.step(gc);
-  
-  return robotParameters_.r_W_e;
 }
