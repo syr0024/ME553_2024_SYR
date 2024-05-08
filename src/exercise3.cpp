@@ -26,8 +26,24 @@ int main(int argc, char* argv[]) {
 
   /// if you are using an old version of Raisim, you need this line
   world.integrate1();
+  
+  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W();
+  std::vector<raisim::Mat<3,3>> &inertiaMat = anymal->getInertia();
+  std::vector<double> &mass = anymal->getMass();
 
-  std::cout<<"mass matrix should be \n"<< anymal->getMassMatrix().e()<<std::endl;
+//  for (size_t i = 0; i < comVec.size(); ++i) {
+//    std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
+//    std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
+//    std::cout << "Inertia matrix" << std::endl;
+//    std::cout << inertiaMat[i].e() << std::endl;
+//  }
+int i=0;
+  std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
+  std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
+  std::cout << "Inertia matrix" << std::endl;
+  std::cout << inertiaMat[i].e() << std::endl;
+  
+//  std::cout<<"mass matrix should be \n"<< anymal->getMassMatrix().e()<<std::endl;
 
   if((getMassMatrix(gc) - anymal->getMassMatrix().e()).norm() < 1e-8)
     std::cout<<"passed "<<std::endl;
