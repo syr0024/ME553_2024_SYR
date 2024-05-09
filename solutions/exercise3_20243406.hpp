@@ -8,24 +8,6 @@ Eigen::Matrix3d hat (Eigen::Vector3d v) {
   return S;
 }
 
-
-
-Eigen::Matrix3d rpy2rot (const double& r, const double& p, const double& y) {
-  Eigen::Matrix3d Rx, Ry, Rz;
-  
-  Rx << 1, 0, 0,
-    0, cos(r), -sin(r),
-    0, sin(r), cos(r);
-  Ry << cos(p), 0, sin(p),
-    0, 1, 0,
-    -sin(p), 0, cos(p);
-  Rz << cos(y), -sin(y), 0,
-    sin(y), cos(y), 0,
-    0, 0, 1;
-  
-  return Rx*Ry*Rz;
-}
-
 Eigen::Matrix3d rpy2rot (const Eigen::Vector3d& rpy) {
   Eigen::Matrix3d Rx, Ry, Rz;
   
@@ -200,6 +182,9 @@ public:
                               const Eigen::VectorXd& inertia);
   Eigen::Matrix3d getInertia (const Eigen::VectorXd& inertia_vec);
   Eigen::MatrixXd baseMassMatrix (const double& mass, const Eigen::Vector3d& r, const Eigen::Matrix3d& inertia);
+  Eigen::VectorXd baseChildMassMatrix (const double& mass, const Eigen::Vector3d& r_com, const Eigen::Matrix3d& I_j,
+                                       const Eigen::Vector3d& joint_pos_i, const Eigen::Vector3d& joint_pos_j,
+                                       const Eigen::Vector3d& joint_axis_j);
   double childMassMatrix (const double& mass, const Eigen::Vector3d& r_com, const Eigen::Matrix3d& I_j,
                           const Eigen::Vector3d& joint_pos_i, const Eigen::Vector3d& joint_pos_j,
                           const Eigen::Vector3d& joint_axis_i, const Eigen::Vector3d& joint_axis_j);
@@ -282,9 +267,6 @@ void Body::getLegCompositeInertia(const std::vector<Eigen::Matrix3d>& joint_ori_
       leg_com_w.push_back(leg_com_new);
       leg_mass_.push_back(leg_mass_.back() + mass(i));
     }
-//    std::cout << leg_inertia_w.back().transpose() << std::endl;
-//    std::cout << "com : " << leg_com_w.back().transpose() << std::endl;
-//    std::cout << "mass : " << leg_mass_.back() << std::endl;
   }
 };
 
@@ -297,9 +279,35 @@ Eigen::MatrixXd Body::baseMassMatrix (const double& mass, const Eigen::Vector3d&
   return M;
 }
 
+Eigen::VectorXd Body::baseChildMassMatrix (const double& mass, const Eigen::Vector3d& r_com, const Eigen::Matrix3d& I_j,
+                                           const Eigen::Vector3d& joint_pos_i, const Eigen::Vector3d& joint_pos_j,
+                                           const Eigen::Vector3d& joint_axis_j) {
+  Eigen::Vector3d r_jc = r_com - joint_pos_j;
+  Eigen::Vector3d r_ij = joint_pos_j - joint_pos_i;
+  Eigen::Matrix<double,6,6> s_i; s_i.setZero();
+  s_i.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+  s_i.block<3,3>(3,3) = Eigen::Matrix3d::Identity();
+  
+  Eigen::VectorXd s_j; s_j.setZero(6);
+  s_j.segment(3,3) = joint_axis_j;
+  
+  Eigen::Matrix<double, 6, 6> Mc;
+  Mc.block<3,3>(0,0) = mass*Eigen::Matrix3d::Identity();
+  Mc.block<3,3>(3,0) = mass*hat(r_jc);
+  Mc.block<3,3>(0,3) = - mass*hat(r_jc);
+  Mc.block<3,3>(3,3) = I_j - mass*hat(r_jc)*hat(r_jc);
+  
+  Eigen::Matrix<double,6,6> A; A.setZero();
+  A.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+  A.block<3,3>(3,3) = Eigen::Matrix3d::Identity();
+  A.block<3,3>(0,3) = - hat(r_ij);
+  
+  return s_j.transpose() * Mc * A * s_i;
+}
+
 double Body::childMassMatrix (const double& mass, const Eigen::Vector3d& r_com, const Eigen::Matrix3d& I_j,
                               const Eigen::Vector3d& joint_pos_i, const Eigen::Vector3d& joint_pos_j,
-                              const Eigen::Vector3d& joint_axis_i, const Eigen::Vector3d& joint_axis_j,) {
+                              const Eigen::Vector3d& joint_axis_i, const Eigen::Vector3d& joint_axis_j) {
   Eigen::Vector3d r_jc = r_com - joint_pos_j;
   Eigen::Vector3d r_ij = joint_pos_j - joint_pos_i;
   Eigen::VectorXd s_i, s_j; s_i.setZero(6); s_j.setZero(6);
@@ -316,11 +324,6 @@ double Body::childMassMatrix (const double& mass, const Eigen::Vector3d& r_com, 
   A.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
   A.block<3,3>(3,3) = Eigen::Matrix3d::Identity();
   A.block<3,3>(0,3) = - hat(r_ij);
-//  std::cout << "r_ij: " << r_ij.transpose() << std::endl;
-//  std::cout << "A: \n" << A << std::endl;
-//  std::cout << s_j.transpose() * Mc * A * s_i << std::endl;
-//  std::cout << s_i.transpose() << std::endl;
-//  std::cout << s_j.transpose() << std::endl;
   return s_j.transpose() * Mc * A * s_i;
 }
 
@@ -497,24 +500,7 @@ inline Eigen::MatrixXd getMassMatrix (const Eigen::VectorXd& gc) {
   body.getLegCompositeInertia(rh_joint_rot_w,rh_joint_pos_w,
                               rh_com_ori, rh_com_pos, rh_mass, rh_inertia);
   
-  // Base
-//  std::cout << "mass" << std::endl;
-//  std::cout << body.leg_mass_[8] << std::endl;
-//  std::cout << body.leg_mass_[17] << std::endl;
-//  std::cout << body.leg_mass_[26] << std::endl;
-//  std::cout << body.leg_mass_[35] << std::endl;
-//
-//  std::cout << "com" << std::endl;
-//  std::cout << body.leg_com_w[8] << std::endl;
-//  std::cout << body.leg_com_w[17] << std::endl;
-//  std::cout << body.leg_com_w[26] << std::endl;
-//  std::cout << body.leg_com_w[35] << std::endl;
-//
-//  std::cout << "inertia" << std::endl;
-//  std::cout << body.leg_inertia_w[8] << std::endl;
-//  std::cout << body.leg_inertia_w[17] << std::endl;
-//  std::cout << body.leg_inertia_w[26] << std::endl;
-//  std::cout << body.leg_inertia_w[35] << std::endl;
+  // CRBA
   
   // Base Mass Matrix
   std::vector<int> body_leg_idx = {8,5,2, 17,14,11, 26,23,20, 35,32,29}; // 거꾸로 구해줘서
@@ -526,32 +512,25 @@ inline Eigen::MatrixXd getMassMatrix (const Eigen::VectorXd& gc) {
   body.getComposite(com, body.leg_com_w[26], mass, body.leg_mass_[26], inertia, body.leg_inertia_w[26], com, mass, inertia);
   body.getComposite(com, body.leg_com_w[35], mass, body.leg_mass_[35], inertia, body.leg_inertia_w[35], com, mass, inertia);
   
-  // child Mass Matrix
   Eigen::Matrix<double, 18, 18> M; M.setZero();
   M.block<6,6>(0,0) = body.baseMassMatrix(mass, (gc.head(3) - com), inertia);
   
-//  Eigen::Vector3d joint_axis_i; joint_axis_i = joint.joint_sign_[10] * joint.joint_rot_w_[joint_leg_idx[10]].block<3,1>(0,0);
-//  Eigen::VectorXd joint_axis_j; joint_axis_j = joint.joint_sign_[11] * joint.joint_rot_w_[joint_leg_idx[11]].block<3,1>(0,0);
-//  std::cout << "joint_axis_i: " << joint_axis_i.transpose() << std::endl;
-//  std::cout << "joint_axis_j: " << joint_axis_j.transpose() << std::endl;
-//  std::cout << "leg_mass_: " << body.leg_mass_[body_leg_idx[11]] << std::endl;
-//  std::cout << "leg_com_w: " << body.leg_com_w[body_leg_idx[11]].transpose() << std::endl;
-//  std::cout << "leg_inertia_w: \n" << body.leg_inertia_w[body_leg_idx[11]] << std::endl;
-//  std::cout << "joint_pos_i: \n" << joint.joint_pos_w_[joint_leg_idx[10]].transpose() << std::endl;
-//  std::cout << "joint_pos_j: \n" << joint.joint_pos_w_[joint_leg_idx[11]].transpose() << std::endl;
-//  double a = body.childMassMatrix(
-//    body.leg_mass_[body_leg_idx[11]], body.leg_com_w[body_leg_idx[11]], body.leg_inertia_w[body_leg_idx[11]],
-//    joint.joint_pos_w_[joint_leg_idx[10]], joint.joint_pos_w_[joint_leg_idx[11]],
-//    joint_axis_i, joint_axis_j);
-//
-//  std::cout << "my result" << std::endl;
-//  std::cout << a << std::endl;
-
+  // Base Child Mass Matrix
+  for (int k=0; k<4; k++) {
+    for (int j=0; j<3; j++) {
+      Eigen::VectorXd joint_axis_j = joint.joint_sign_[k*3+j] * joint.joint_rot_w_[joint_leg_idx[k*3+j]].block<3,1>(0,0);
+      M.block<1,6>((k*3+j)+6, 0) = body.baseChildMassMatrix
+        (body.leg_mass_[body_leg_idx[k*3+j]], body.leg_com_w[body_leg_idx[k*3+j]], body.leg_inertia_w[body_leg_idx[k*3+j]],
+         gc.head(3), joint.joint_pos_w_[joint_leg_idx[k*3+j]], joint_axis_j);
+    }
+  }
+  
+  // child Mass Matrix
   for (int k=0; k<4; k++) {
     for (int i=0; i<3; i++) {
       for (int j=0; j<3; j++) {
-        Eigen::Vector3d joint_axis_i; joint_axis_i = joint.joint_sign_[k*3+i] * joint.joint_rot_w_[joint_leg_idx[k*3+i]].block<3,1>(0,0);
-        Eigen::VectorXd joint_axis_j; joint_axis_j = joint.joint_sign_[k*3+j] * joint.joint_rot_w_[joint_leg_idx[k*3+j]].block<3,1>(0,0);
+        Eigen::Vector3d joint_axis_i = joint.joint_sign_[k*3+i] * joint.joint_rot_w_[joint_leg_idx[k*3+i]].block<3,1>(0,0);
+        Eigen::VectorXd joint_axis_j = joint.joint_sign_[k*3+j] * joint.joint_rot_w_[joint_leg_idx[k*3+j]].block<3,1>(0,0);
         M((k*3+j)+6, (k*3+i)+6) = body.childMassMatrix(
           body.leg_mass_[body_leg_idx[k*3+j]], body.leg_com_w[body_leg_idx[k*3+j]], body.leg_inertia_w[body_leg_idx[k*3+j]],
           joint.joint_pos_w_[joint_leg_idx[k*3+i]], joint.joint_pos_w_[joint_leg_idx[k*3+j]],
@@ -560,10 +539,7 @@ inline Eigen::MatrixXd getMassMatrix (const Eigen::VectorXd& gc) {
     }
   }
   
+  M = M.selfadjointView<Eigen::Lower>();
   
-  
-  std::cout << "my result" << std::endl;
-  std::cout << M << std::endl;
-  
-  return Eigen::MatrixXd::Ones(18,18);
+  return M;
 }
