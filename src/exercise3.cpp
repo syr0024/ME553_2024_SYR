@@ -27,35 +27,45 @@ int main(int argc, char* argv[]) {
   /// if you are using an old version of Raisim, you need this line
   world.integrate1();
   
-  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W();
-  std::vector<raisim::Mat<3,3>> &inertiaMat = anymal->getInertia();
-  std::vector<double> &mass = anymal->getMass();
-
-  for (size_t i = 0; i < comVec.size(); ++i) {
-    std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
-    std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
-    std::cout << "Inertia matrix" << std::endl;
-    std::cout << inertiaMat[i].e() << std::endl;
-  }
 //int i=0;
 //  std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
 //  std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
 //  std::cout << "Inertia matrix" << std::endl;
 //  std::cout << inertiaMat[i].e() << std::endl;
   
+//  std::vector<raisim::Mat<3, 3>> inertiaMat_all = anymal->getCompositeInertia();
+//  std::cout << "Inertia matrix all" << std::endl;
+//  std::cout << inertiaMat_all[0].e() << std::endl;
+  
+  
   raisim::Vec<3> pos;
   raisim::Mat<3,3> rot;
-  anymal->getFramePosition("RH_shank_fixed_RH_FOOT", pos);
-  anymal->getFrameOrientation("RH_shank_fixed_RH_FOOT", rot);
-  std::cout << "RH_shank_fixed_RH_FOOT pos " << pos.e().transpose() << std::endl;
-  std::cout << "RH_shank_fixed_RH_FOOT rot \n" << rot.e() << std::endl;
+  anymal->getFramePosition("RH_HFE", pos);
+  anymal->getFrameOrientation("RH_HFE", rot);
+  std::cout << "RH_HFE pos " << pos.e().transpose() << std::endl;
+  std::cout << "RH_HFE rot \n" << rot.e() << std::endl;
+  anymal->getFramePosition("RH_KFE", pos);
+  anymal->getFrameOrientation("RH_KFE", rot);
+  std::cout << "RH_KFE pos " << pos.e().transpose() << std::endl;
+  std::cout << "RH_KFE rot \n" << rot.e() << std::endl;
 
-//  std::cout<<"mass matrix should be \n"<< anymal->getMassMatrix().e()<<std::endl;
+  std::cout<<"mass matrix should be \n"<< anymal->getMassMatrix().e()<<std::endl;
 
   if((getMassMatrix(gc) - anymal->getMassMatrix().e()).norm() < 1e-8)
     std::cout<<"passed "<<std::endl;
   else
-    std::cout<<"failed "<<std::endl;  
+    std::cout<<"failed "<<std::endl;
+  
+  std::vector<raisim::Vec<3>> comVec = anymal->getCompositeCOM();
+  std::vector<raisim::Mat<3, 3>> inertiaMat = anymal->getCompositeInertia();
+  std::vector<double> mass = anymal->getCompositeMass();
+  
+//  for (size_t i = 0; i < comVec.size(); ++i) {
+//    std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
+//    std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
+//    std::cout << "Inertia matrix" << std::endl;
+//    std::cout << inertiaMat[i] << std::endl;
+//  }
 
   return 0;
 }
