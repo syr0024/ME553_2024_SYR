@@ -49,8 +49,6 @@ public:
   std::vector<Eigen::Vector3d> joint_pos_w_;
   std::vector<Eigen::Matrix3d> joint_rot_w_;
   std::vector<double> joint_sign_;
-  std::vector<int> revolute_joint_idx_;
-  int leg_num;
   
 private:
   static void forwardKinematics(const Eigen::Vector3d& parent_pos_w, const Eigen::Vector3d& parent_ori_w,
@@ -63,9 +61,8 @@ Joint::Joint(const Eigen::VectorXd& gc) {
   
   /// change urdf !!
   // joint origin, position urdf에 있는 순서로 넣어주기
-  // joint sign 넣어주기 (현재 코드는 x축 기준으로 revolute joint만 고려되어 있음.
+  // joint sign 넣어주기 (현재 코드는 x축 기준으로 revolute joint만 고려되어 있음)
   joint_sign_ = {1,1,1, 1,-1,-1, -1,1,1, -1,-1,-1}; // lf(haa, hfe, kfe), rf, lh, rh
-  revolute_joint_idx_ = {1,4,7, 11,14,17, 21,24,27, 31,34,37}; // lf(haa, hfe, kfe), rf, lh, rh
   
   
   // lf [0]
@@ -569,7 +566,7 @@ inline Eigen::MatrixXd getMassMatrix (const Eigen::VectorXd& gc) {
 //    std::cout << "pos: " << body.leg_com_w_[i].transpose() << std::endl;
 //    std::cout << "mass: " << body.leg_mass_[i] << std::endl;
 //  }
-  /// change urdf ! check index !
+  /// change urdf ! check index ! index is revolute joint number
   std::vector<int> body_leg_idx = {0,3,6, 9,12,15, 18,21,24, 27,30,33}; // 최초 revolute joint 이전의 fixed joint 때문에 다름
   std::vector<int> joint_leg_idx = {1,4,7, 11,14,17, 21,24,27, 31,34,37}; // lf(haa, hfe, kfe), rf, lh, rh
   int leg_num = 4; // 다리의 개수
@@ -605,7 +602,7 @@ inline Eigen::MatrixXd getMassMatrix (const Eigen::VectorXd& gc) {
   // Child Mass Matrix
   for (int k=0; k<leg_num; k++) {
     for (int i=0; i<3; i++) {
-      for (int j=0; j<3; j++) {
+      for (int j=i; j<3; j++) {
         Eigen::Vector3d joint_axis_i = joint.joint_sign_[k*leg_joint_num+i] * joint.joint_rot_w_[joint_leg_idx[k*leg_joint_num+i]].block<3,1>(0,0);
         Eigen::VectorXd joint_axis_j = joint.joint_sign_[k*leg_joint_num+j] * joint.joint_rot_w_[joint_leg_idx[k*leg_joint_num+j]].block<3,1>(0,0);
         M((k*leg_joint_num+j)+6, (k*leg_joint_num+i)+6) = body.childMassMatrix(
