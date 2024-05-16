@@ -31,6 +31,8 @@ int main(int argc, char* argv[]) {
   gc << 0, 0, 10.54, 1.0, 0.0, 0.0, 0.0, 0.03, 0.4, -0.8, -0.03, 0.4, -0.8, 0.03, -0.4, 0.8, -0.03, -0.4, 0.8;
   gv << 0.1, 0.2, 0.3, 0.1, 0.4, 0.3, 0.1,0.1,0.1, 0.2,0.2,0.2, 0.3,0.3,0.3, 0.4,0.4,0.4;
   anymal->setState(gc, gv);
+  getFootLinearVelocity(gc, gv);
+  getFootAngularVelocity(gc, gv);
 
   // visualization
   server.launchServer();

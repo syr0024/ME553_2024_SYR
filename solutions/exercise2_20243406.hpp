@@ -181,6 +181,8 @@ inline Eigen::Vector3d getFootLinearVelocity (const Eigen::VectorXd& gc, const E
   
   Eigen::VectorXd joint_gv; joint_gv.setZero(9);
   joint_gv << gv.head(6), gv.block<3,1>(12,0);
+  std::cout << "r_w_e \n" << robotParameters_.r_W_e.transpose() << std::endl;
+  std::cout << "positional_jacobain\n" << positional_jacobain << std::endl;
   
   return positional_jacobain * joint_gv;
 }
@@ -202,6 +204,7 @@ inline Eigen::Vector3d getFootAngularVelocity (const Eigen::VectorXd& gc, const 
   
   Eigen::VectorXd joint_gv; joint_gv.setZero(9);
   joint_gv << gv.head(6), gv.block<3,1>(12,0);
+  std::cout << "velocity_jacobian\n" << velocity_jacobian << std::endl;
   
   return velocity_jacobian*joint_gv;
 }

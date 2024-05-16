@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
   // anymal configuration
   Eigen::VectorXd gc(anymal->getGeneralizedCoordinateDim()), gv(anymal->getDOF());
   gc << 0, 0, 0.54, 1.0, 0.0, 0.0, 0.0, 0.03, 0.4, -0.8, -0.03, 0.4, -0.8, 0.03, -0.4, 0.8, -0.03, -0.4, 0.8; /// Jemin: I'll randomize the gc, gv when grading
-  gv << 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8;
+  gv << 0.1, 0.2, 0.3, 0.1, 0.4, 0.3, 0.2,0.2,0.2, 0.2,0.2,0.2, 0.2,0.2,0.2, 0.2,0.2,0.2;
   anymal->setState(gc, gv);
 
   /// if you are using an old version of Raisim, you need this line
@@ -33,6 +33,37 @@ int main(int argc, char* argv[]) {
     std::cout<<"passed "<<std::endl;
   else
     std::cout<<"failed "<<std::endl;
-
+  
+  
+  raisim::Vec<3> pos;
+  anymal->getFramePosition("LF_HAA", pos);
+  std::cout << "pos " << pos.e().transpose() << std::endl;
+  anymal->getFramePosition("LF_HFE", pos);
+  std::cout << "pos " << pos.e().transpose() << std::endl;
+  
+  raisim::Mat<3,3> ori;
+  anymal->getFrameOrientation("LF_HAA", ori);
+  std::cout << "ori " << ori.e() << std::endl;
+  
+  raisim::Vec<3> angVel;
+  anymal->getFrameAngularVelocity("LF_HAA", angVel);
+  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+  anymal->getFrameAngularVelocity("LF_HFE", angVel);
+  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+  anymal->getFrameAngularVelocity("RH_shank_fixed_RH_FOOT", angVel);
+  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+  
+  raisim::Vec<3> linAcc;
+  anymal->getFrameAcceleration("LF_HAA", linAcc);
+  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+  anymal->getFrameAcceleration("LF_HFE", linAcc);
+  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+  anymal->getFrameAcceleration("LF_KFE", linAcc);
+  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+  anymal->getFrameAcceleration("RF_HAA", linAcc);
+  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+  anymal->getFrameAcceleration("RF_KFE", linAcc);
+  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+  
   return 0;
 }
