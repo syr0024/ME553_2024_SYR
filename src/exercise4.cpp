@@ -34,36 +34,73 @@ int main(int argc, char* argv[]) {
   else
     std::cout<<"failed "<<std::endl;
   
-  
-  raisim::Vec<3> pos;
-  anymal->getFramePosition("LF_HAA", pos);
-  std::cout << "pos " << pos.e().transpose() << std::endl;
-  anymal->getFramePosition("LF_HFE", pos);
-  std::cout << "pos " << pos.e().transpose() << std::endl;
-  
-  raisim::Mat<3,3> ori;
-  anymal->getFrameOrientation("LF_HAA", ori);
-  std::cout << "ori " << ori.e() << std::endl;
-  
-  raisim::Vec<3> angVel;
-  anymal->getFrameAngularVelocity("LF_HAA", angVel);
-  std::cout << "angVel " << angVel.e().transpose() << std::endl;
-  anymal->getFrameAngularVelocity("LF_HFE", angVel);
-  std::cout << "angVel " << angVel.e().transpose() << std::endl;
-  anymal->getFrameAngularVelocity("RH_shank_fixed_RH_FOOT", angVel);
-  std::cout << "angVel " << angVel.e().transpose() << std::endl;
-  
-  raisim::Vec<3> linAcc;
-  anymal->getFrameAcceleration("LF_HAA", linAcc);
-  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
-  anymal->getFrameAcceleration("LF_HFE", linAcc);
-  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
-  anymal->getFrameAcceleration("LF_KFE", linAcc);
-  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
-  anymal->getFrameAcceleration("RF_HAA", linAcc);
-  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
-  anymal->getFrameAcceleration("RF_KFE", linAcc);
-  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  std::cout<<"mass matrix should be \n"<< anymal->getMassMatrix().e()<<std::endl;
+//
+//  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W();
+//  std::vector<raisim::Mat<3,3>> inertia = anymal->getCompositeInertia();
+//  std::vector<double> mass = anymal->getCompositeMass();
+
+//  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W();
+////  std::vector<raisim::Mat<3,3>> inertia = anymal->getCompositeInertia();
+//  std::vector<double> mass = anymal->getMass();
+//
+//   for (size_t i = 0; i < comVec.size(); ++i) {
+//     std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
+//     std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
+//     std::cout << "Body " << i << "inertia : \n";
+////     std::cout << inertia[i].e() << std::endl;
+//   }
+   
+//  raisim::Vec<3> pos;
+//  anymal->getFramePosition("LF_HAA", pos);
+//  std::cout << "pos " << pos.e().transpose() << std::endl;
+//  anymal->getFramePosition("LF_HFE", pos);
+//  std::cout << "pos " << pos.e().transpose() << std::endl;
+//
+//  raisim::Mat<3,3> ori;
+//  anymal->getFrameOrientation("LF_HAA", ori);
+//  std::cout << "ori " << ori.e() << std::endl;
+//  anymal->getFrameOrientation("LF_HFE", ori);
+//  std::cout << "ori " << ori.e() << std::endl;
+//  anymal->getFrameOrientation("LF_KFE", ori);
+//  std::cout << "ori " << ori.e() << std::endl;
+//  anymal->getFrameOrientation("RH_HFE", ori);
+//  std::cout << "ori " << ori.e() << std::endl;
+
+//  raisim::Vec<3> angVel;
+//  anymal->getFrameAngularVelocity("LF_HAA", angVel);
+//  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+//  anymal->getFrameAngularVelocity("LF_HFE", angVel);
+//  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+//  anymal->getFrameAngularVelocity("RH_shank_fixed_RH_FOOT", angVel);
+//  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+//
+//  raisim::Vec<3> linAcc;
+//  anymal->getFrameAcceleration("LF_HAA", linAcc);
+//  std::cout << "\nlinAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("LF_HFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("LF_KFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("RF_HAA", linAcc);
+//  std::cout << "\nlinAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("RF_HFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("RF_KFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("LH_HAA", linAcc);
+//  std::cout << "\nlinAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("LH_HFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("LH_KFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("RH_HAA", linAcc);
+//  std::cout << "\nlinAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("RH_HFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//  anymal->getFrameAcceleration("RH_KFE", linAcc);
+//  std::cout << "linAcc " << linAcc.e().transpose() << std::endl;
+//
   
   return 0;
 }
