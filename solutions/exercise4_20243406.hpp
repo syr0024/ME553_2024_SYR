@@ -238,11 +238,7 @@ void Joint::getSmatrix() { //TODO : check
       Eigen::VectorXd s_dot; s_dot.setZero(6);
       s_dot.segment(3,3) = skew(angvel_w_[1+idx]) * joint_axis;
       s_dot_.push_back(s_dot);
-//      std::cout << " angvel_w_... " << angvel_w_[1+idx].transpose() << std::endl;
-//      std::cout << " joint_axis... " << joint_axis.transpose() << std::endl;
-//      std::cout << " s_dot_... " << s_dot_.back().transpose() << std::endl;
     }
-//    std::cout << " s_dot_... " << s_dot_.back().transpose() << std::endl;
   }
 }
 
@@ -279,17 +275,12 @@ void Joint::getWorldAcc() {
       
       gen_a << a_w, alpha_w;
       gen_a += s_dot_[1+idx] * gv_(6+idx);
-//      std::cout << idx << "  s_dot: " << s_dot_[1+idx].transpose() << std::endl;
-//      std::cout << idx << "  joint_pos_w_: " << joint_pos_w_[joint_leg_idx[idx]].transpose() << std::endl;
       gen_a_.push_back(gen_a);
       
       a_w << gen_a.segment(0,3);
       alpha_w << gen_a.segment(3,3);
       a_w_.push_back(a_w);
       alpha_w_.push_back(alpha_w);
-//      std::cout << "\n" << idx << "th" << std::endl;
-//      std::cout << "a_w : " << a_w.transpose() << std::endl;
-//      std::cout << "alpha_w : " << alpha_w.transpose() << std::endl;
     }
   }
 }
@@ -785,6 +776,7 @@ inline Eigen::VectorXd getNonlinearities (const Eigen::VectorXd& gc, const Eigen
   // RNE
   std::vector<Eigen::Vector3d> F_w_;
   std::vector<Eigen::Vector3d> tau_w_;
+  Eigen::VectorXd base_gen_F; base_gen_F.setZero(6);
   
   for (int k=0; k<leg_num; k++) {
     std::vector<Eigen::Vector3d> F_w; F_w.clear();
@@ -820,30 +812,49 @@ inline Eigen::VectorXd getNonlinearities (const Eigen::VectorXd& gc, const Eigen
       // get Generalized Force
       Eigen::Matrix<double,6,1> gen_F;
       Eigen::Vector3d angvel = joint.angvel_w_[1+idx];
-      Eigen::Vector3d r_com = (body_com - joint.joint_pos_w_[joint_leg_idx[idx]]);
       // + b
-      gen_F.segment(0,3) = body_mass*skew(angvel)*skew(angvel)*r_com;
-      gen_F.segment(3,3) = skew(angvel) * (body_inertia - body_mass*skew(r_com)*skew(r_com)) * angvel;
-      //
-      
+      gen_F.segment(0,3) = body_mass*skew(angvel)*skew(angvel)*r_jc;
+      gen_F.segment(3,3) = skew(angvel) * (body_inertia - body_mass*skew(r_jc)*skew(r_jc)) * angvel;
+      // + force applied from the child
       if (i<leg_joint_num-1) { // not leaf body
         gen_F.segment(0,3) += F_w.back();
         gen_F.segment(3,3) += tau_w.back() + skew(joint.joint_pos_w_[joint_leg_idx[idx+1]] - joint.joint_pos_w_[joint_leg_idx[idx]])*F_w.back();
       }
-      
-      gen_F += Mc * joint.gen_a_[1+idx]; // + M*[a alpha]
+      // + M*[a alpha]
+      gen_F += Mc * joint.gen_a_[1+idx];
       F_w.push_back(gen_F.segment(0,3));
       tau_w.push_back(gen_F.segment(3,3));
     }
+    // base_gen_F (+ force applied from the child)
+    base_gen_F.segment(0,3) += F_w.back();
+    base_gen_F.segment(3,3) += tau_w.back() + skew(joint.joint_pos_w_[joint_leg_idx[k*leg_joint_num]] - gc.head(3))*F_w.back();
+    // Since we calculated it from child, we turn it over and save it.
     std::reverse(F_w.begin(), F_w.end());
     F_w_.insert(F_w_.end(), F_w.begin(), F_w.end());
     std::reverse(tau_w.begin(), tau_w.end());
     tau_w_.insert(tau_w_.end(), tau_w.begin(), tau_w.end());
   }
-
-  Eigen::VectorXd b; b.setZero(18);
   
-//  b.segment(1,6) = joint.s_[0];
+  // base
+  // get Spatial Inertia Matrix
+  Eigen::VectorXd r_jc = body.base_com - gc.head(3);
+  Eigen::Matrix<double,6,6> Mc; Mc.setZero();
+  Mc.block<3,3>(0,0) = body.base_mass * Eigen::Matrix3d::Identity();
+  Mc.block<3,3>(3,0) = body.base_mass * skew(r_jc);
+  Mc.block<3,3>(0,3) = -body.base_mass * skew(r_jc);
+  Mc.block<3,3>(3,3) = body.base_inertia - body.base_mass*skew(r_jc)*skew(r_jc);
+  
+  // get Generalized Force (base_gen_F) (The force applied by child was already added earlier.)
+  Eigen::Vector3d angvel = joint.angvel_w_[0];
+  // + b
+  base_gen_F.segment(0,3) += body.base_mass*skew(angvel)*skew(angvel)*r_jc;
+  base_gen_F.segment(3,3) += skew(angvel) * (body.base_inertia - body.base_mass*skew(r_jc)*skew(r_jc)) * angvel;
+  // + M*[a alpha]
+  base_gen_F += Mc * joint.gen_a_[0];
+
+  // get Nonlinearities
+  Eigen::VectorXd b; b.setZero(18);
+  b.head(6) << base_gen_F;
   for (int k=0; k<leg_num; k++) {
     for (int i=0; i<leg_joint_num; i++) {
       int idx = k*leg_joint_num + i;
@@ -852,13 +863,8 @@ inline Eigen::VectorXd getNonlinearities (const Eigen::VectorXd& gc, const Eigen
       
       gen_F << F_w_[idx], tau_w_[idx];
       b.segment(6+idx,1) = joint.s_[1+idx].transpose() * gen_F;
-      
-//      std::cout << idx << "  joint s_ : " << joint.s_[1+idx].transpose() << std::endl;
-//      std::cout << idx << "  gen_F : " << gen_F.transpose() << std::endl;
     }
   }
-  
-  std::cout << "my b ... \n" << b.segment(6,12).transpose() << std::endl;
   
   return b;
 }
