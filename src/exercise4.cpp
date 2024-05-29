@@ -21,6 +21,15 @@ int main(int argc, char* argv[]) {
   Eigen::VectorXd gc(anymal->getGeneralizedCoordinateDim()), gv(anymal->getDOF());
   gc << 0, 0, 0.54, 1.0, 0.0, 0.0, 0.0, 0.03, 0.4, -0.8, -0.03, 0.4, -0.8, 0.03, -0.4, 0.8, -0.03, -0.4, 0.8; /// Jemin: I'll randomize the gc, gv when grading
   gv << 0.1, 0.2, 0.3, 0.1, 0.4, 0.3, 0.2,0.2,0.2, 0.2,0.2,0.2, 0.2,0.2,0.2, 0.2,0.2,0.2;
+  
+  //gc, gv randomization
+  gc.head(3) << Eigen::Vector3d::Random(); gc(2) + 0.4;
+  Eigen::Vector4d quat = Eigen::Vector4d::Random();
+  gc.segment(3,4) << quat/quat.norm();
+  gc.segment(7, 12) << Eigen::VectorXd::Random(12);
+  
+  gv << Eigen::VectorXd::Random(18);
+  
   anymal->setState(gc, gv);
 
   /// if you are using an old version of Raisim, you need this line

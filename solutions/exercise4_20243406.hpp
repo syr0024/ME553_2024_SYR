@@ -714,7 +714,7 @@ inline Eigen::VectorXd getNonlinearities (const Eigen::VectorXd& gc, const Eigen
   body.getLegComposite(rh_joint_rot_w,rh_joint_pos_w,
                               rh_com_ori, rh_com_pos, rh_mass, rh_inertia);
   
-  // CRBA
+  /// CRBA ///
 //  // for debugging : index check!
 //  std::cout << body.leg_com_COM_w_.size() << std::endl;
 //  for (int i=0; i<body.leg_com_COM_w_.size(); i++){
@@ -773,7 +773,7 @@ inline Eigen::VectorXd getNonlinearities (const Eigen::VectorXd& gc, const Eigen
   Mass_mat = Mass_mat.selfadjointView<Eigen::Lower>();
   
   
-  // RNE
+  /// RNE ///
   std::vector<Eigen::Vector3d> F_w_;
   std::vector<Eigen::Vector3d> tau_w_;
   Eigen::VectorXd base_gen_F; base_gen_F.setZero(6);
