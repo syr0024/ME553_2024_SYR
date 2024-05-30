@@ -45,6 +45,7 @@ public:
   void set_gc(const Eigen::VectorXd& gc); // gc가 update 될 때마다 불러줘야함
   void set_gv(const Eigen::VectorXd& gv);
   void jointKinematics();
+  void getWorldLinearVel();
   void getWorldAngularVel();
   void getSmatrix();
   void getWorldAcc();
@@ -59,7 +60,8 @@ public:
   
   std::vector<Eigen::Vector3d> joint_pos_w_; // world frame에서 본 joint position (fixed joint 포함)
   std::vector<Eigen::Matrix3d> joint_rot_w_; // world frame에서 본 joint orientation (3,3 matrix) (fixed joint 포함)
-  std::vector<Eigen::Vector3d> angvel_w_;   // world frame에서 본 joint angular velocity (fixed joint 제외)
+  std::vector<Eigen::Vector3d> angvel_w_;   // world frame에서 본 joint angular velocity (fixed joint 제외, base 포함)
+  std::vector<Eigen::Vector3d> linvel_w_;   // world frame에서 본 joint linear velocity (fixed joint 제외, base 포함)
   std::vector<Eigen::MatrixXd> s_;  // motion subspace matrix (fixed joint 제외)
   std::vector<Eigen::MatrixXd> s_dot_;  // time derivative of motion subspace matrix (fixed joint 제외)
   std::vector<Eigen::Vector3d> a_w_, alpha_w_;  // joint acceleration vector expressed in world frame
@@ -194,8 +196,35 @@ void Joint::jointKinematics() {
   }
   
   getWorldAngularVel();
+  getWorldLinearVel();
   getSmatrix();
   getWorldAcc();
+}
+
+void Joint::getWorldLinearVel() {
+  linvel_w_.clear();
+  linvel_w_.push_back(gv_.head(3));
+  
+  for (int k=0; k<leg_num_; k++) {
+    for (int i=0; i<leg_joint_num_; i++) {
+      int idx = k*leg_joint_num_+i;
+      
+      Eigen::MatrixXd positional_jacobain; positional_jacobain.setZero(3, 6+leg_joint_num_);
+      
+      positional_jacobain.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+      positional_jacobain.block<3,3>(0,3)
+        = - skew((joint_pos_w_[joint_leg_idx[idx]] - gc_.head(3)));
+      for (int j=i; j>=0; j--) {
+        positional_jacobain.block<3,1>(0,6+(i-j))
+          = (joint_sign_[idx-j] * joint_rot_w_[joint_leg_idx[idx-j]].block<3,1>(0,0)).cross(joint_pos_w_[joint_leg_idx[idx]] - joint_pos_w_[joint_leg_idx[idx-j]]);
+      }
+      
+      Eigen::VectorXd joint_gv; joint_gv.setZero(6+leg_joint_num_);
+      joint_gv << gv_.head(6), gv_.segment(6+k*leg_joint_num_,3);
+      
+      linvel_w_.push_back(positional_jacobain * joint_gv);
+    }
+  }
 }
 
 void Joint::getWorldAngularVel() {
@@ -352,8 +381,8 @@ public:
   std::vector<Eigen::VectorXd> b_;
   /// Calculated by ABA
   // spatial inertia matrix of ABA
-  std::vector<Eigen::MatrixXd> M_AP_;
-  std::vector<Eigen::VectorXd> b_AP_;
+  std::vector<Eigen::MatrixXd> M_AP_; // Articulated body inertia
+  std::vector<Eigen::VectorXd> b_AP_; // Articulated body bias
   
 };
 
@@ -905,38 +934,52 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
     std::vector<Eigen::Matrix<double,6,1>> b_AP_temp;
     for (int i=leg_joint_num-1; i>=0; i--) {
       int idx = 1 + k*leg_joint_num + i; // 1 is for base frame
+      std::cout << "\nidx: " << idx << std::endl;
+      std::cout << "6+idx-1: " << 6+idx-1 << std::endl;
       
       if (i<leg_joint_num-1) { // not leaf body
         // X_BP
         Eigen::MatrixXd X_BP; X_BP.setZero(6,6);
-        Eigen::VectorXd r_PB = joint.joint_pos_w_[joint_leg_idx[idx]] - joint.joint_pos_w_[joint_leg_idx[idx-1]];
+        Eigen::Vector3d r_PB = joint.joint_pos_w_[joint_leg_idx[idx]] - joint.joint_pos_w_[joint_leg_idx[idx-1]];
         X_BP.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
         X_BP.block<3,3>(3,0) = skew(r_PB);
         X_BP.block<3,3>(3,3) = Eigen::Matrix3d::Identity();
         // X_BP_dot
         Eigen::MatrixXd X_BP_dot; X_BP_dot.setZero(6,6);
-        X_BP_dot.block<3,3>(3,0) = skew(skew(joint.angvel_w_[idx])*r_PB);
+        X_BP_dot.block<3,3>(3,0) = skew((joint.angvel_w_[idx]).cross(r_PB));
         // etc
-        Eigen::MatrixXd SMS_inv = (joint.s_[idx].transpose()*M_AP_temp.back()*joint.s_[idx]).inverse();
+        Eigen::MatrixXd SMS_inv = (joint.s_[idx+1].transpose()*M_AP_temp.back()*joint.s_[idx+1]).inverse();
+        Eigen::VectorXd w_AP; w_AP.setZero(6); w_AP << joint.linvel_w_[idx], joint.angvel_w_[idx];
+        
         /// Compute M_AP
         Eigen::MatrixXd M_AP; M_AP.setZero(6,6);
         M_AP = body.Mc_[idx] +
-          X_BP*M_AP_temp.back()*(-joint.s_[idx]*SMS_inv*joint.s_[idx].transpose()*M_AP_temp.back()*X_BP.transpose() + X_BP.transpose());
-        M_AP_temp.push_back(M_AP);
+          X_BP*M_AP_temp.back()*(-joint.s_[idx+1]*SMS_inv*(joint.s_[idx+1].transpose()*M_AP_temp.back()*X_BP.transpose()) + X_BP.transpose());
         /// Compute b_AP
         Eigen::VectorXd b_AP; b_AP.setZero(6);
-        b_AP = body.b_[idx] + X_BP*(M_AP_temp.back()*(joint.s_dot_[idx]*gv[6+idx-1] + X_BP_dot.transpose()*joint.gen_a_[idx] +
-          joint.s_[idx]*SMS_inv*( gf[6+idx-1] - (joint.s_[idx].transpose()*M_AP_temp.back()*(joint.s_dot_[idx]*gv[6+idx-1] + X_BP_dot.transpose()*joint.gen_a_[idx])
-          - joint.s_[idx].transpose()*b_AP_temp.back())(0,0) )) + b_AP_temp.back());
-        b_AP_temp.push_back(b_AP);
+        std::cout << "!!!!!" << (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP)) << std::endl;
+        std::cout << "?????" << (joint.s_dot_[idx+1].transpose()*b_AP_temp.back()) << std::endl;
+        double temp = gf[6+idx-1] - (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP))(0,0)
+          - (joint.s_dot_[idx+1].transpose()*b_AP_temp.back())(0,0);
+        b_AP = body.b_[idx] +
+          X_BP*(M_AP_temp.back() * ( joint.s_[idx+1] * SMS_inv * temp + joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose() * w_AP ) + b_AP_temp.back() );
+          
+//          X_BP*(M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP +
+//          joint.s_[idx+1]*SMS_inv*( gf[6+idx-1] - (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP)
+//          - joint.s_[idx+1].transpose()*b_AP_temp.back())(0,0) )) + b_AP_temp.back());
         /// Compute M_AB, b_AB for base
         M_AP_base += M_AP;
         b_AP_base += b_AP;
+        /// push back
+        M_AP_temp.push_back(M_AP);
+        b_AP_temp.push_back(b_AP);
       }
       else {
         M_AP_temp.push_back(body.Mc_[idx]);
         b_AP_temp.push_back(body.b_[idx]);
       }
+//      std::cout << "M_AP: \n" << M_AP_temp.back().transpose() << std::endl;
+      std::cout << "b_AP: \n" << b_AP_temp.back().transpose() << std::endl;
     }
     body.M_AP_.insert(body.M_AP_.end(), M_AP_temp.rbegin(), M_AP_temp.rend());
     body.b_AP_.insert(body.b_AP_.end(), b_AP_temp.rbegin(), b_AP_temp.rend());
@@ -946,11 +989,20 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
   body.b_AP_.insert(body.b_AP_.begin(), b_AP_base);
   
   /// Step 2. compute u_dot, w_dot (root to leaves)
-  for (int k=0; k<leg_num; k++) {
-    for (int i=0; i<leg_joint_num; i++) {
-      
-    }
-  }
+  Eigen::VectorXd u_dot; u_dot.setZero(18);
+  Eigen::VectorXd w_dot; w_dot.setZero(6);
+  // base initial condition
+  w_dot.head(3) = gravity;
+  u_dot.head(6) = -(joint.s_[0].transpose()*body.M_AP_[0]*joint.s_[0]).inverse() * joint.s_[0].transpose() *
+    (body.M_AP_[0]*w_dot + body.b_AP_[0]);
+  
+//  for (int k=0; k<leg_num; k++) {
+//    for (int i=0; i<leg_joint_num; i++) {
+//
+//    }
+//  }
 
-  return Eigen::VectorXd::Ones(18);
+  std::cout << "my answer is \n" << u_dot.transpose() << std::endl;
+
+  return u_dot;
 }

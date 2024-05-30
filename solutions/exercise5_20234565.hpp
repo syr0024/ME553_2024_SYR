@@ -255,9 +255,18 @@ void getArticulatedMandB(std::vector<Body>& leg){
                     * (leg[i+1].s * (leg[i+1].s.transpose() * leg[i+1].MA * leg[i+1].s).inverse() * temp1
                     + leg[i+1].s_dot*leg[i+1].jointVel + XBP_dot.transpose()*leg[i].genVelW)
                     + leg[i+1].BA);
+//          std::cout << "XBP_dot: \n" << leg[i+1].XBP_dot << std::endl;
+//          std::cout << "XBP: \n" << leg[i+1].XBP << std::endl;
+//          std::cout << "s: \n" << leg[i+1].s.transpose() << std::endl;
+//          std::cout << "s_dot: \n" << leg[i+1].s_dot.transpose() << std::endl;
+          std::cout << "w_AP: \n" << leg[i].genVelW.transpose() << std::endl;
         }
         leg[i].MA = MA;
         leg[i].BA = BA;
+//        std::cout << "body Mc: \n" << getSpatialInertialMatrix(leg[i]) << std::endl;
+//        std::cout << "MA: \n" << MA << std::endl;
+//        std::cout << "b: \n" << getFictitiousForces(leg[i]).transpose() << std::endl;
+//        std::cout << "b: \n" << getFictitiousForces(leg[i]).transpose() << std::endl;
     }
 }
 

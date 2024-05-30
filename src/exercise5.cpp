@@ -4,6 +4,7 @@
 
 #include "raisim/RaisimServer.hpp"
 #include "exercise5_20243406.hpp"
+//#include "exercise5_20234565.hpp"
 
 #define _MAKE_STR(x) __MAKE_STR(x)
 #define __MAKE_STR(x) #x
@@ -35,7 +36,7 @@ int main(int argc, char* argv[]) {
   if((computeGeneralizedAcceleration(gc, gv, gf) - massMatrix.inverse() * (gf-nonlinearity)).norm() < 1e-8)
     std::cout<<"passed "<<std::endl;
   else
-    std::cout<<"failed. The acceleration should be "<< (massMatrix.inverse() * (gf-nonlinearity)).transpose() <<std::endl;
+    std::cout<<"failed. The acceleration should be \n"<< (massMatrix.inverse() * (gf-nonlinearity)).transpose() <<std::endl;
 
   return 0;
 }
