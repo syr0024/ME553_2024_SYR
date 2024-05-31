@@ -930,13 +930,11 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
   
   // legs
   for (int k=0; k<leg_num; k++) {
-    std::vector<Eigen::Matrix<double,6,6>> M_AP_temp;
-    std::vector<Eigen::Matrix<double,6,1>> b_AP_temp;
+    std::vector<Eigen::Matrix<double,6,6>> M_AP_temp; M_AP_temp.clear();
+    std::vector<Eigen::Matrix<double,6,1>> b_AP_temp; b_AP_temp.clear();
     for (int i=leg_joint_num-1; i>=0; i--) {
       int idx = 1 + k*leg_joint_num + i; // 1 is for base frame
-      std::cout << "\nidx: " << idx << std::endl;
-      std::cout << "6+idx-1: " << 6+idx-1 << std::endl;
-      
+
       if (i<leg_joint_num-1) { // not leaf body
         // X_BP
         Eigen::MatrixXd X_BP; X_BP.setZero(6,6);
@@ -947,6 +945,7 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
         // X_BP_dot
         Eigen::MatrixXd X_BP_dot; X_BP_dot.setZero(6,6);
         X_BP_dot.block<3,3>(3,0) = skew((joint.angvel_w_[idx]).cross(r_PB));
+//        X_BP_dot.block<3,3>(3,0) = skew(joint.linvel_w_[idx] - joint.linvel_w_[idx-1]);
         // etc
         Eigen::MatrixXd SMS_inv = (joint.s_[idx+1].transpose()*M_AP_temp.back()*joint.s_[idx+1]).inverse();
         Eigen::VectorXd w_AP; w_AP.setZero(6); w_AP << joint.linvel_w_[idx], joint.angvel_w_[idx];
@@ -954,19 +953,13 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
         /// Compute M_AP
         Eigen::MatrixXd M_AP; M_AP.setZero(6,6);
         M_AP = body.Mc_[idx] +
-          X_BP*M_AP_temp.back()*(-joint.s_[idx+1]*SMS_inv*(joint.s_[idx+1].transpose()*M_AP_temp.back()*X_BP.transpose()) + X_BP.transpose());
+          X_BP * M_AP_temp.back()*(-joint.s_[idx+1]*SMS_inv*(joint.s_[idx+1].transpose()*M_AP_temp.back()*X_BP.transpose()) + X_BP.transpose());
         /// Compute b_AP
         Eigen::VectorXd b_AP; b_AP.setZero(6);
-        std::cout << "!!!!!" << (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP)) << std::endl;
-        std::cout << "?????" << (joint.s_dot_[idx+1].transpose()*b_AP_temp.back()) << std::endl;
-        double temp = gf[6+idx-1] - (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP))(0,0)
-          - (joint.s_dot_[idx+1].transpose()*b_AP_temp.back())(0,0);
+        double temp = gf[6+idx] - (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx] + X_BP_dot.transpose()*w_AP))(0,0)
+          - (joint.s_[idx+1].transpose()*b_AP_temp.back())(0,0);
         b_AP = body.b_[idx] +
-          X_BP*(M_AP_temp.back() * ( joint.s_[idx+1] * SMS_inv * temp + joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose() * w_AP ) + b_AP_temp.back() );
-          
-//          X_BP*(M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP +
-//          joint.s_[idx+1]*SMS_inv*( gf[6+idx-1] - (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx-1] + X_BP_dot.transpose()*w_AP)
-//          - joint.s_[idx+1].transpose()*b_AP_temp.back())(0,0) )) + b_AP_temp.back());
+          X_BP * ( M_AP_temp.back() * ( joint.s_[idx+1] * SMS_inv * temp + joint.s_dot_[idx+1]*gv[6+idx] + X_BP_dot.transpose()*w_AP ) + b_AP_temp.back() );
         /// Compute M_AB, b_AB for base
         M_AP_base += M_AP;
         b_AP_base += b_AP;
@@ -978,8 +971,6 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
         M_AP_temp.push_back(body.Mc_[idx]);
         b_AP_temp.push_back(body.b_[idx]);
       }
-//      std::cout << "M_AP: \n" << M_AP_temp.back().transpose() << std::endl;
-      std::cout << "b_AP: \n" << b_AP_temp.back().transpose() << std::endl;
     }
     body.M_AP_.insert(body.M_AP_.end(), M_AP_temp.rbegin(), M_AP_temp.rend());
     body.b_AP_.insert(body.b_AP_.end(), b_AP_temp.rbegin(), b_AP_temp.rend());
