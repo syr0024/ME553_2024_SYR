@@ -4,7 +4,6 @@
 
 #include "raisim/RaisimServer.hpp"
 #include "exercise5_20243406.hpp"
-//#include "exercise5_20234565.hpp"
 
 #define _MAKE_STR(x) __MAKE_STR(x)
 #define __MAKE_STR(x) #x

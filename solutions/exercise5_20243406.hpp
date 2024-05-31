@@ -62,10 +62,10 @@ public:
   std::vector<Eigen::Matrix3d> joint_rot_w_; // world frame에서 본 joint orientation (3,3 matrix) (fixed joint 포함)
   std::vector<Eigen::Vector3d> angvel_w_;   // world frame에서 본 joint angular velocity (fixed joint 제외, base 포함)
   std::vector<Eigen::Vector3d> linvel_w_;   // world frame에서 본 joint linear velocity (fixed joint 제외, base 포함)
-  std::vector<Eigen::MatrixXd> s_;  // motion subspace matrix (fixed joint 제외)
-  std::vector<Eigen::MatrixXd> s_dot_;  // time derivative of motion subspace matrix (fixed joint 제외)
+  std::vector<Eigen::MatrixXd> s_;  // motion subspace matrix (fixed joint 제외, base 포함)
+  std::vector<Eigen::MatrixXd> s_dot_;  // time derivative of motion subspace matrix (fixed joint 제외, base 포함)
   std::vector<Eigen::Vector3d> a_w_, alpha_w_;  // joint acceleration vector expressed in world frame
-  std::vector<Eigen::VectorXd> gen_a_; // generalized acceleration vector expressed in world frame
+  std::vector<Eigen::VectorXd> gen_a_; // generalized acceleration vector expressed in world frame (fixed joint 제외, base 포함)
   std::vector<double> joint_sign_;
 
 private:
@@ -251,7 +251,7 @@ void Joint::getSmatrix() {
   s0.block<3,3>(0,0) << Eigen::Matrix3d::Identity();
   s0.block<3,3>(3,3) << Eigen::Matrix3d::Identity();
   s_.push_back(s0);
-  Eigen::Matrix<double,6,6> s0_dot; s0.setZero();
+  Eigen::Matrix<double,6,6> s0_dot; s0_dot.setZero();
   s_dot_.push_back(s0_dot);
   
   // tree
@@ -358,6 +358,7 @@ public:
 
 public:
   Eigen::VectorXd gc_, gv_;
+  double robot_mass_;
   
   // com, mass, inertia of base at world frame (직전 parents 가 base 인 애들 + base 의 composite inertia)
   Eigen::Vector3d base_com;
@@ -381,8 +382,8 @@ public:
   std::vector<Eigen::VectorXd> b_;
   /// Calculated by ABA
   // spatial inertia matrix of ABA
-  std::vector<Eigen::MatrixXd> M_AP_; // Articulated body inertia
-  std::vector<Eigen::VectorXd> b_AP_; // Articulated body bias
+  std::vector<Eigen::MatrixXd> M_A_; // Articulated body inertia
+  std::vector<Eigen::VectorXd> b_A_; // Articulated body bias
   
 };
 
@@ -784,6 +785,7 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
                       body.leg_com_Inertia_w_[body_leg_idx[k*leg_joint_num]],
                       com, mass, inertia);
   }
+  body.robot_mass_ = mass;
   
   /// change urdf ! 알맞은 mass matrix 크기로 바꿔줘야 함
   Eigen::Matrix<double, 18, 18> Mass_mat; Mass_mat.setZero();
@@ -817,7 +819,7 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
   }
   
   Mass_mat = Mass_mat.selfadjointView<Eigen::Lower>();
-  ///////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////////////////
   
   
   /// RNE ///
@@ -925,13 +927,13 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
   /// ABA ///
   /// Step 1. compute M_AP, b_AP (leaves to the root)
   
-  Eigen::Matrix<double,6,6> M_AP_base; M_AP_base = body.Mc_[0];
-  Eigen::Matrix<double,6,1> b_AP_base; b_AP_base = body.b_[0];
+  Eigen::Matrix<double,6,6> M_A_base = body.Mc_[0];
+  Eigen::Matrix<double,6,1> b_A_base = body.b_[0];
   
   // legs
   for (int k=0; k<leg_num; k++) {
-    std::vector<Eigen::Matrix<double,6,6>> M_AP_temp; M_AP_temp.clear();
-    std::vector<Eigen::Matrix<double,6,1>> b_AP_temp; b_AP_temp.clear();
+    std::vector<Eigen::Matrix<double,6,6>> M_A_temp; M_A_temp.clear();
+    std::vector<Eigen::Matrix<double,6,1>> b_A_temp; b_A_temp.clear();
     for (int i=leg_joint_num-1; i>=0; i--) {
       int idx = 1 + k*leg_joint_num + i; // 1 is for base frame
 
@@ -945,55 +947,113 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
         // X_BP_dot
         Eigen::MatrixXd X_BP_dot; X_BP_dot.setZero(6,6);
         X_BP_dot.block<3,3>(3,0) = skew((joint.angvel_w_[idx]).cross(r_PB));
-//        X_BP_dot.block<3,3>(3,0) = skew(joint.linvel_w_[idx] - joint.linvel_w_[idx-1]);
         // etc
-        Eigen::MatrixXd SMS_inv = (joint.s_[idx+1].transpose()*M_AP_temp.back()*joint.s_[idx+1]).inverse();
+        Eigen::MatrixXd SMS_inv = (joint.s_[idx+1].transpose()*M_A_temp.back()*joint.s_[idx+1]).inverse();
         Eigen::VectorXd w_AP; w_AP.setZero(6); w_AP << joint.linvel_w_[idx], joint.angvel_w_[idx];
         
         /// Compute M_AP
         Eigen::MatrixXd M_AP; M_AP.setZero(6,6);
         M_AP = body.Mc_[idx] +
-          X_BP * M_AP_temp.back()*(-joint.s_[idx+1]*SMS_inv*(joint.s_[idx+1].transpose()*M_AP_temp.back()*X_BP.transpose()) + X_BP.transpose());
+          X_BP * M_A_temp.back()*(-joint.s_[idx+1]*SMS_inv*(joint.s_[idx+1].transpose()*M_A_temp.back()*X_BP.transpose()) + X_BP.transpose());
         /// Compute b_AP
         Eigen::VectorXd b_AP; b_AP.setZero(6);
-        double temp = gf[6+idx] - (joint.s_[idx+1].transpose()*M_AP_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx] + X_BP_dot.transpose()*w_AP))(0,0)
-          - (joint.s_[idx+1].transpose()*b_AP_temp.back())(0,0);
+        double temp = gf[6+idx] - (joint.s_[idx+1].transpose()*M_A_temp.back()*(joint.s_dot_[idx+1]*gv[6+idx] + X_BP_dot.transpose()*w_AP))(0,0)
+          - (joint.s_[idx+1].transpose()*b_A_temp.back())(0,0);
         b_AP = body.b_[idx] +
-          X_BP * ( M_AP_temp.back() * ( joint.s_[idx+1] * SMS_inv * temp + joint.s_dot_[idx+1]*gv[6+idx] + X_BP_dot.transpose()*w_AP ) + b_AP_temp.back() );
-        /// Compute M_AB, b_AB for base
-        M_AP_base += M_AP;
-        b_AP_base += b_AP;
+          X_BP * ( M_A_temp.back() * ( joint.s_[idx+1] * SMS_inv * temp + joint.s_dot_[idx+1]*gv[6+idx] + X_BP_dot.transpose()*w_AP ) + b_A_temp.back() );
         /// push back
-        M_AP_temp.push_back(M_AP);
-        b_AP_temp.push_back(b_AP);
+        M_A_temp.push_back(M_AP);
+        b_A_temp.push_back(b_AP);
+        
+        /// Compute M_AP, b_AP for base
+        if (i==0) {
+          // X_BP
+          r_PB = joint.joint_pos_w_[joint_leg_idx[leg_joint_num*k]] - gc.head(3);
+          X_BP.block<3,3>(3,0) = skew(r_PB);
+          // X_BP_dot
+          X_BP_dot.block<3,3>(3,0) = skew((joint.angvel_w_[0]).cross(r_PB));
+          // etc
+          SMS_inv = (joint.s_[idx].transpose()*M_A_temp.back()*joint.s_[idx]).inverse();
+          w_AP << joint.linvel_w_[0], joint.angvel_w_[0];
+          // Calculate
+          M_A_base += X_BP * M_A_temp.back()*(-joint.s_[idx]*SMS_inv*(joint.s_[idx].transpose()*M_A_temp.back()*X_BP.transpose()) + X_BP.transpose());
+          temp = gf[6+leg_joint_num*k] - (joint.s_[idx].transpose()*M_A_temp.back()*(joint.s_dot_[idx]*gv[6+leg_joint_num*k] + X_BP_dot.transpose()*w_AP))(0,0)
+            - (joint.s_[idx].transpose()*b_A_temp.back())(0,0);
+          b_A_base += X_BP * ( M_A_temp.back() * ( joint.s_[idx] * SMS_inv * temp + joint.s_dot_[idx]*gv[6+leg_joint_num*k] + X_BP_dot.transpose()*w_AP ) + b_A_temp.back() );
+        }
       }
       else {
-        M_AP_temp.push_back(body.Mc_[idx]);
-        b_AP_temp.push_back(body.b_[idx]);
+        M_A_temp.push_back(body.Mc_[idx]);
+        b_A_temp.push_back(body.b_[idx]);
       }
     }
-    body.M_AP_.insert(body.M_AP_.end(), M_AP_temp.rbegin(), M_AP_temp.rend());
-    body.b_AP_.insert(body.b_AP_.end(), b_AP_temp.rbegin(), b_AP_temp.rend());
+    body.M_A_.insert(body.M_A_.end(), M_A_temp.rbegin(), M_A_temp.rend());
+    body.b_A_.insert(body.b_A_.end(), b_A_temp.rbegin(), b_A_temp.rend());
   }
   // base
-  body.M_AP_.insert(body.M_AP_.begin(), M_AP_base);
-  body.b_AP_.insert(body.b_AP_.begin(), b_AP_base);
+  body.M_A_.insert(body.M_A_.begin(), M_A_base);
+  body.b_A_.insert(body.b_A_.begin(), b_A_base);
   
   /// Step 2. compute u_dot, w_dot (root to leaves)
   Eigen::VectorXd u_dot; u_dot.setZero(18);
-  Eigen::VectorXd w_dot; w_dot.setZero(6);
-  // base initial condition
-  w_dot.head(3) = gravity;
-  u_dot.head(6) = -(joint.s_[0].transpose()*body.M_AP_[0]*joint.s_[0]).inverse() * joint.s_[0].transpose() *
-    (body.M_AP_[0]*w_dot + body.b_AP_[0]);
+  std::vector<Eigen::Matrix<double,6,1>> w_dot; w_dot.clear();
   
-//  for (int k=0; k<leg_num; k++) {
-//    for (int i=0; i<leg_joint_num; i++) {
-//
-//    }
-//  }
-
-  std::cout << "my answer is \n" << u_dot.transpose() << std::endl;
+  // base
+  // u_dot
+  u_dot.head(6) = (body.M_A_[0]).inverse() * ( gf.head(6) - body.b_A_[0] );
+  // w_dot
+  w_dot.push_back(u_dot.head(6));
+  u_dot.head(3) -= gravity;   // consider the gravity
+  
+  for (int k=0; k<leg_num; k++) {
+    for (int i=0; i<leg_joint_num; i++) {
+      int idx = 1 + k*leg_joint_num + i; // 1 is for base frame
+      
+      if (i==0) {
+        // X_BP
+        Eigen::MatrixXd X_BP; X_BP.setZero(6,6);
+        Eigen::Vector3d r_PB = joint.joint_pos_w_[joint_leg_idx[idx-1]] - gc.head(3);
+        X_BP.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+        X_BP.block<3,3>(3,0) = skew(r_PB);
+        X_BP.block<3,3>(3,3) = Eigen::Matrix3d::Identity();
+        // X_BP_dot
+        Eigen::MatrixXd X_BP_dot; X_BP_dot.setZero(6,6);
+        X_BP_dot.block<3,3>(3,0) = skew((joint.angvel_w_[0]).cross(r_PB));
+        // w_AP
+        Eigen::VectorXd w_AP; w_AP.setZero(6);
+        w_AP << joint.linvel_w_[0], joint.angvel_w_[0];
+        // u_dot
+        u_dot[6 + idx-1] = 1/(joint.s_[idx].transpose()*body.M_A_[idx]*joint.s_[idx])(0,0)
+                * ( gf[6 + idx-1] - (joint.s_[idx].transpose()*body.M_A_[idx]
+                * ( joint.s_dot_[idx]*gv[6 + idx-1] + X_BP_dot.transpose()*w_AP + X_BP.transpose()*w_dot[0] ))(0,0)
+                - ( joint.s_[idx].transpose()*body.b_A_[idx])(0,0) );
+        // w_dot
+        w_dot.push_back(joint.s_[idx]*u_dot[6 + idx-1] + joint.s_dot_[idx]*gv[6 + idx-1] + X_BP_dot.transpose()*w_AP + X_BP.transpose()*w_dot[0]);
+      }
+      else {
+        // X_BP
+        Eigen::MatrixXd X_BP; X_BP.setZero(6,6);
+        Eigen::Vector3d r_PB = joint.joint_pos_w_[joint_leg_idx[idx-1]] - joint.joint_pos_w_[joint_leg_idx[idx-2]];
+        X_BP.block<3,3>(0,0) = Eigen::Matrix3d::Identity();
+        X_BP.block<3,3>(3,0) = skew(r_PB);
+        X_BP.block<3,3>(3,3) = Eigen::Matrix3d::Identity();
+        // X_BP_dot
+        Eigen::MatrixXd X_BP_dot; X_BP_dot.setZero(6,6);
+        X_BP_dot.block<3,3>(3,0) = skew((joint.angvel_w_[idx-1]).cross(r_PB));
+        // w_AP
+        Eigen::VectorXd w_AP; w_AP.setZero(6);
+        w_AP << joint.linvel_w_[idx-1], joint.angvel_w_[idx-1];
+        // u_dot
+        u_dot[6 + idx-1] = 1/(joint.s_[idx].transpose()*body.M_A_[idx]*joint.s_[idx])(0,0)
+               * ( gf[6 + idx-1] - (joint.s_[idx].transpose()*body.M_A_[idx]
+               * ( joint.s_dot_[idx]*gv[6 + idx-1] + X_BP_dot.transpose()*w_AP + X_BP.transpose()*w_dot.back() ))(0,0)
+               - ( joint.s_[idx].transpose()*body.b_A_[idx])(0,0) );
+        // w_dot
+        w_dot.push_back(joint.s_[idx]*u_dot[6 + idx-1] + joint.s_dot_[idx]*gv[6 + idx-1] + X_BP_dot.transpose()*w_AP + X_BP.transpose()*w_dot.back());
+      }
+    }
+  }
+  /////////////////////////////////////////////////////////////////////////////////
 
   return u_dot;
 }
