@@ -65,7 +65,7 @@ public:
   std::vector<Eigen::MatrixXd> s_;  // motion subspace matrix (fixed joint 제외, base 포함)
   std::vector<Eigen::MatrixXd> s_dot_;  // time derivative of motion subspace matrix (fixed joint 제외, base 포함)
   std::vector<Eigen::Vector3d> a_w_, alpha_w_;  // joint acceleration vector expressed in world frame
-  std::vector<Eigen::VectorXd> gen_a_; // generalized acceleration vector expressed in world frame (fixed joint 제외, base 포함)
+  std::vector<Eigen::VectorXd> wrench_; // generalized acceleration vector expressed in world frame (fixed joint 제외, base 포함)
   std::vector<double> joint_sign_;
 
 private:
@@ -274,17 +274,17 @@ void Joint::getSmatrix() {
 void Joint::getWorldAcc() {
   a_w_.clear();
   alpha_w_.clear();
-  gen_a_.clear();
+  wrench_.clear();
   
   // base
   Eigen::Vector3d a_w, alpha_w;
   a_w.setZero(); alpha_w.setZero();
-  Eigen::VectorXd gen_a; gen_a.setZero(6);
+  Eigen::VectorXd wrench; wrench.setZero(6);
   a_w_.push_back(gravity);
   alpha_w_.push_back(alpha_w);
   
-  gen_a << a_w_.back(), alpha_w_.back();
-  gen_a_.push_back(gen_a);
+  wrench << a_w_.back(), alpha_w_.back();
+  wrench_.push_back(wrench);
   
   // tree
   for (int k=0; k<leg_num_; k++) {
@@ -302,12 +302,12 @@ void Joint::getWorldAcc() {
         alpha_w = alpha_w_.back();
       }
       
-      gen_a << a_w, alpha_w;
-      gen_a += s_dot_[1+idx] * gv_(6+idx);
-      gen_a_.push_back(gen_a);
+      wrench << a_w, alpha_w;
+      wrench += s_dot_[1+idx] * gv_(6+idx);
+      wrench_.push_back(wrench);
       
-      a_w << gen_a.segment(0,3);
-      alpha_w << gen_a.segment(3,3);
+      a_w << wrench.segment(0,3);
+      alpha_w << wrench.segment(3,3);
       a_w_.push_back(a_w);
       alpha_w_.push_back(alpha_w);
     }
@@ -364,11 +364,6 @@ public:
   Eigen::Vector3d base_com;
   double base_mass = 0;
   Eigen::Matrix3d base_inertia;
-  
-  // com, mass, inertia of legs at world frame (각 다리 들의 com, mass, inertia)
-  std::vector<Eigen::Vector3d> leg_COM_w_;
-  std::vector<double> leg_Mass_;
-  std::vector<Eigen::Matrix3d> leg_Inertia_w_;
   
   // composite com, mass, inertia of legs at world frame (각 다리 들의 composite com, mass, inertia)
   std::vector<Eigen::Vector3d> leg_com_COM_w_;
@@ -477,12 +472,9 @@ void Body::getLegComposite(const std::vector<Eigen::Matrix3d>& joint_ori_w,
     }
   }
   
-  std::reverse(leg_com_w.begin(), leg_com_w.end());
-  std::reverse(leg_mass.begin(), leg_mass.end());
-  std::reverse(leg_inertia_w.begin(), leg_inertia_w.end());
-  leg_com_COM_w_.insert(leg_com_COM_w_.end(), leg_com_w.begin(), leg_com_w.end());
-  leg_com_Mass_.insert(leg_com_Mass_.end(), leg_mass.begin(), leg_mass.end());
-  leg_com_Inertia_w_.insert(leg_com_Inertia_w_.end(), leg_inertia_w.begin(), leg_inertia_w.end());
+  leg_com_COM_w_.insert(leg_com_COM_w_.end(), leg_com_w.rbegin(), leg_com_w.rend());
+  leg_com_Mass_.insert(leg_com_Mass_.end(), leg_mass.rbegin(), leg_mass.rend());
+  leg_com_Inertia_w_.insert(leg_com_Inertia_w_.end(), leg_inertia_w.rbegin(), leg_inertia_w.rend());
 };
 
 Eigen::MatrixXd Body::baseMassMatrix (const double& mass, const Eigen::Vector3d& com, const Eigen::Matrix3d& inertia) {
@@ -873,7 +865,7 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
         gen_F.segment(3,3) += tau_w.back() + skew(joint.joint_pos_w_[joint_leg_idx[idx+1]] - joint.joint_pos_w_[joint_leg_idx[idx]])*F_w.back();
       }
       // + M*[a alpha]
-      gen_F += Mc * joint.gen_a_[1+idx];
+      gen_F += Mc * joint.wrench_[1+idx];
       F_w.push_back(gen_F.segment(0,3));
       tau_w.push_back(gen_F.segment(3,3));
     }
@@ -907,7 +899,7 @@ inline Eigen::VectorXd computeGeneralizedAcceleration (const Eigen::VectorXd& gc
   base_gen_F.segment(0,3) += b_temp.segment(0,3);
   base_gen_F.segment(3,3) += b_temp.segment(3,3);
   // + M*[a alpha]
-  base_gen_F += Mc * joint.gen_a_[0];
+  base_gen_F += Mc * joint.wrench_[0];
   
   /// Step 2. get Nonlinearities (root to the leaves)
   Eigen::VectorXd b; b.setZero(18);

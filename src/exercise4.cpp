@@ -44,22 +44,20 @@ int main(int argc, char* argv[]) {
     std::cout<<"failed "<<std::endl;
   
 //  std::cout<<"mass matrix should be \n"<< anymal->getMassMatrix().e()<<std::endl;
+//  std::cout<<"nonlinearities should be \n"<< anymal->getNonlinearities({0,0,-9.81}).e().transpose() <<std::endl;
+//  std::cout<<"The acceleration should be \n"<< (massMatrix.inverse() * (gf-nonlinearity)).transpose() <<std::endl;
 //
-//  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W();
+//  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W(); // anymal->getCompositeCOM()
 //  std::vector<raisim::Mat<3,3>> inertia = anymal->getCompositeInertia();
-//  std::vector<double> mass = anymal->getCompositeMass();
-
-//  std::vector<raisim::Vec<3>> &comVec = anymal->getBodyCOM_W();
-////  std::vector<raisim::Mat<3,3>> inertia = anymal->getCompositeInertia();
-//  std::vector<double> mass = anymal->getMass();
+//  std::vector<double> mass = anymal->getMass(); // anymal->getCompositeMass()
 //
 //   for (size_t i = 0; i < comVec.size(); ++i) {
 //     std::cout << "Body " << i << "의 질량 중심 위치와 질량 : ";
 //     std::cout << "(" << comVec[i][0] << ", " << comVec[i][1] << ", " << comVec[i][2] << ")" << "    " << mass[i] << std::endl;
 //     std::cout << "Body " << i << "inertia : \n";
-////     std::cout << inertia[i].e() << std::endl;
+//     std::cout << inertia[i].e() << std::endl;
 //   }
-   
+//
 //  raisim::Vec<3> pos;
 //  anymal->getFramePosition("LF_HAA", pos);
 //  std::cout << "pos " << pos.e().transpose() << std::endl;
@@ -75,7 +73,7 @@ int main(int argc, char* argv[]) {
 //  std::cout << "ori " << ori.e() << std::endl;
 //  anymal->getFrameOrientation("RH_HFE", ori);
 //  std::cout << "ori " << ori.e() << std::endl;
-
+//
 //  raisim::Vec<3> angVel;
 //  anymal->getFrameAngularVelocity("LF_HAA", angVel);
 //  std::cout << "angVel " << angVel.e().transpose() << std::endl;
@@ -83,6 +81,14 @@ int main(int argc, char* argv[]) {
 //  std::cout << "angVel " << angVel.e().transpose() << std::endl;
 //  anymal->getFrameAngularVelocity("RH_shank_fixed_RH_FOOT", angVel);
 //  std::cout << "angVel " << angVel.e().transpose() << std::endl;
+
+//  raisim::Vec<3> linVel;
+//  anymal->getFrameVelocity("LF_HAA", linVel);
+//  std::cout << "angVel " << linVel.e().transpose() << std::endl;
+//  anymal->getFrameVelocity("LF_HFE", linVel);
+//  std::cout << "angVel " << linVel.e().transpose() << std::endl;
+//  anymal->getFrameVelocity("RH_shank_fixed_RH_FOOT", linVel);
+//  std::cout << "angVel " << linVel.e().transpose() << std::endl;
 //
 //  raisim::Vec<3> linAcc;
 //  anymal->getFrameAcceleration("LF_HAA", linAcc);
