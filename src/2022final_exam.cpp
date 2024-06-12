@@ -18,9 +18,10 @@ int main(int argc, char* argv[]) {
   auto cartpole_double = world.addArticulatedSystem(std::string(_MAKE_STR(RESOURCE_DIR)) + "/cartPole/cartpole_double.urdf");
 
   // a1_simplified configuration
-  Eigen::VectorXd gc(cartpole_double->getGeneralizedCoordinateDim()), gv(cartpole_double->getDOF());
+  Eigen::VectorXd gc(cartpole_double->getGeneralizedCoordinateDim()), gv(cartpole_double->getDOF()), gf(cartpole_double->getDOF());
   gc << 0, 1, 2;
   gv << 0.1, 0.2, 0.3;
+  gf << 1, 2, 3;
   cartpole_double->setState(gc, gv);
 
   /// this function updates internal variables in raisim (such as the mass matrix and nonlinearities)
@@ -82,12 +83,15 @@ int main(int argc, char* argv[]) {
 //     std::cout << "Body " << i << " inertia : \n";
 //     std::cout << inertia[i].e() << std::endl;
 //   }
-
-
+  
+  world.integrate1();
+  Eigen::VectorXd nonlinearity(cartpole_double->getDOF());
+  Eigen::MatrixXd massMatrix(cartpole_double->getDOF(), cartpole_double->getDOF());
+  massMatrix = cartpole_double->getMassMatrix().e();
 
 //  std::cout<<"mass matrix should be \n"<< cartpole_double->getMassMatrix().e()<<std::endl;
-  std::cout<<"nonlinearities should be \n"<< cartpole_double->getNonlinearities({0,0,-9.81}).e().transpose() <<std::endl;
-//  std::cout<<"The acceleration should be \n"<< (massMatrix.inverse() * (gf-nonlinearity)).transpose() <<std::endl;
+//  std::cout<<"nonlinearities should be \n"<< cartpole_double->getNonlinearities({0,0,-9.81}).e().transpose() <<std::endl;
+  std::cout<<"The acceleration should be \n"<< (massMatrix.inverse() * (gf-nonlinearity)).transpose() <<std::endl;
 
   
   if((getNonlinearities(gc, gv) - cartpole_double->getNonlinearities({0,0,-9.81}).e()).norm() < 1e-8)

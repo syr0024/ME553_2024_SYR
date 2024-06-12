@@ -666,6 +666,10 @@ inline Eigen::VectorXd getNonlinearities (const Eigen::VectorXd& gc, const Eigen
     b.segment(i,1) = joint.s_[i].transpose() * gen_F;
   }
   std::cout << "my nonlinearity answer is : " << b.transpose() << std::endl;
+  
+  
+  /// ABA ///
+  
 
   return Eigen::VectorXd::Ones(3);
 }
